@@ -129,6 +129,32 @@ dc_antes = S_clean[:, BIN_DC] - 0.5*(S_clean[:, BIN_DC-1] + S_clean[:, BIN_DC+1]
 S_clean[:, BIN_DC] = 0.5*(S_clean[:, BIN_DC-1] + S_clean[:, BIN_DC+1])
 n_dc = S_clean.shape[0]
 
+# ── 5b. Correccion por desajuste de antena (S11, calibracion del receptor) ──
+# El dataset trae ANTENNA1.csv: barrido S11 de la antena (analizador de redes,
+# 700-950 MHz). Se usa para corregir la perdida de senal por desajuste de
+# impedancia en la banda medida -es una correccion de calibracion del receptor,
+# no una imputacion de datos faltantes.
+ANTENNA_CSV = f'{DATA_DIR}/ANTENNA1.csv'
+
+def cargar_s11(path):
+    freqs, s11v, leyendo = [], [], False
+    for linea in open(path):
+        linea = linea.strip()
+        if linea == 'BEGIN': leyendo = True; continue
+        if linea == 'END': break
+        if leyendo and linea:
+            fr, s = linea.split(',')
+            freqs.append(float(fr) / 1e6); s11v.append(float(s))
+    return np.array(freqs), np.array(s11v)
+
+freq_s11, s11 = cargar_s11(ANTENNA_CSV)
+s11_bins = np.interp(FREQ, freq_s11, s11)             # S11 (dB) interpolado a los 1024 bins
+gamma2 = 10 ** (s11_bins / 10)                          # |Gamma|^2 = 10^(S11_dB/10)
+perdida_desajuste_dB = -10 * np.log10(1 - gamma2)       # perdida de desajuste (dB), siempre > 0
+S_clean += perdida_desajuste_dB[None, :]
+print(f'Correccion por desajuste de antena (S11): {perdida_desajuste_dB.min():.2f} a '
+      f'{perdida_desajuste_dB.max():.2f} dB en la banda (media {perdida_desajuste_dB.mean():.2f} dB)')
+
 def espigas_aisladas(S, w, k, ancho_max):
     med = median_filter(S, size=(1, w), mode='nearest')
     mad = np.maximum(median_filter(np.abs(S - med), size=(1, w), mode='nearest') * 1.4826, 1.0)
@@ -179,6 +205,8 @@ calidad = {
   'valores_modificados_sin_piso': n_modif_sin_piso, 'valores_modificados_piso': int(n_piso),
   'valores_totales_espectro': int(total_esp), 'aplicar_piso': bool(APLICAR_PISO),
   'saturadas': M.archivo[saturada].tolist(),
+  'correccion_antena': {'archivo': os.path.basename(ANTENNA_CSV), 'min_dB': float(perdida_desajuste_dB.min()),
+                         'max_dB': float(perdida_desajuste_dB.max()), 'media_dB': float(perdida_desajuste_dB.mean())},
 }
 print(f"Completitud: {calidad['completitud_pct']:.1f} % | GPS valido: {calidad['gps_valido_pct']:.1f} % | Modificados (sin piso): {n_modif_sin_piso} | con piso: {n_modif_sin_piso + n_piso}")
 

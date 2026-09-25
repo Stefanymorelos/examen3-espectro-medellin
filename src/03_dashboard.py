@@ -4,19 +4,26 @@ Version script de 03_dashboard.ipynb (misma logica), adaptada para correr
 como servidor Dash local (sin Colab), y exportar tambien la version
 estatica dashboard_estatico.html.
 """
-import os, json, argparse
+import os, json, argparse, base64
 import numpy as np, pandas as pd
 import plotly.graph_objects as go
 from scipy.spatial import cKDTree
 
-BASE, EN_COLAB = os.path.abspath('..'), False
-OUT = f'{BASE}/data/salida'
+BASE, EN_COLAB = os.path.abspath('./IoT_Examen3'), False
+OUT = f'{BASE}/salida'
+FIGS = f'{OUT}/figs'
 
 IND = pd.read_csv(f'{OUT}/indicadores_medidas.csv', parse_dates=['hora'])
 RES = pd.read_csv(f'{OUT}/resumen_canales.csv', index_col='Canal')
 FUE = pd.read_csv(f'{OUT}/fuentes.csv', index_col='canal')
 FQ  = json.load(open(f'{OUT}/frecuencias.json'))
+CAL = json.load(open(f'{OUT}/calidad.json'))
 CANALES = {'A': (840, 845), 'B': (845, 850), 'C': (850, 855), 'D': (855, 860)}
+
+def img64(nombre):
+    ruta = f'{FIGS}/{nombre}'
+    if not os.path.exists(ruta): return None
+    return 'data:image/png;base64,' + base64.b64encode(open(ruta, 'rb').read()).decode()
 
 RANGO_P = (-95, -10)
 CAPAS = {'ubicacion': ('Ubicacion de las mediciones', None, None, None, None),
@@ -54,6 +61,7 @@ IDS = [str(i) for i in range(len(celdas))]
 VALORES = {k: idw(IND[col].values) for k, (_, col, *_r) in CAPAS.items() if col}
 print(f'{len(celdas)} celdas de {CELDA_M:.0f} m')
 
+import dash
 from dash import Dash, dcc, html, Input, Output
 
 TEXTO_PUNTO = [f'<b>Medicion {int(o):03d}</b> - {h_:%H:%M}<br>Temp {t:.1f} C<br>' + '<br>'.join(f'Canal {c}: {p:.1f} dBm' for c, p in zip('ABCD', ps))
@@ -97,13 +105,74 @@ def panel_indicadores():
                  html.Td(r.Dictamen, style={'color': COLOR_DICT[r.Dictamen], 'fontWeight': 600})]) for c, r in RES.iterrows()]
     return [dcc.Graph(figure=barras, config={'displayModeBar': False}), html.Table(filas, style={'width': '100%', 'fontSize': 13, 'borderCollapse': 'collapse'})]
 
-app = Dash(__name__, title='Ocupacion 840-860 MHz - Medellin')
+# ── Paleta y layout general ───────────────────────────────────────────────
+NAVY, NAVY_DK, TEAL, ICE, BG, TEXT, MUTED = '#1e2f52', '#132139', '#1c7293', '#cfe0ec', '#eef1f4', '#14202b', '#4a5a68'
 PANEL = {'background': 'white', 'border': '1px solid #d5dbe1', 'borderRadius': 6, 'padding': 12}
-app.layout = html.Div(style={'fontFamily': 'system-ui, -apple-system, Segoe UI, sans-serif', 'background': '#eef1f4', 'padding': 14, 'color': '#14202b'}, children=[
-    html.Div([html.H2('Ocupacion del espectro 840-860 MHz - occidente de Medellin', style={'margin': 0, 'fontSize': 21}),
-              html.Div(f"{len(IND)} mediciones - canal mas contaminado: {FQ['canal_mas_contaminado']} - menos contaminado: {FQ['canal_menos_contaminado']} - frecuencia mas contaminada: {FQ['f_max_MHz']:.3f} MHz",
-                       style={'fontSize': 13, 'color': '#4a5a68', 'marginTop': 3})], style={'marginBottom': 10}),
-    html.Div(style={'display': 'grid', 'gridTemplateColumns': '230px 1fr 290px', 'gap': 12, 'alignItems': 'start'}, children=[
+
+VISTAS = [
+    ('inicio',   'Inicio',   '⌂'),
+    ('mapa',     'Mapa',     '◈'),
+    ('espectro', 'Espectro', '≈'),
+    ('calidad',  'Calidad',  '✓'),
+    ('fuentes',  'Fuentes',  '◎'),
+]
+
+def sidebar(activa='inicio'):
+    items = []
+    for key, label, icono in VISTAS:
+        es_activa = key == activa
+        items.append(html.Button([
+            html.Span(icono, style={'fontSize': 16, 'width': 22, 'display': 'inline-block', 'textAlign': 'center'}),
+            html.Span(label, style={'marginLeft': 8})
+        ], id={'type': 'nav', 'index': key}, n_clicks=0, style={
+            'display': 'flex', 'alignItems': 'center', 'width': '100%', 'padding': '10px 14px', 'marginBottom': 4,
+            'border': 'none', 'borderRadius': 6, 'cursor': 'pointer', 'fontSize': 14, 'textAlign': 'left',
+            'background': TEAL if es_activa else 'transparent', 'color': '#ffffff' if es_activa else ICE,
+            'fontWeight': 600 if es_activa else 400}))
+    return html.Div([
+        html.Div('IoT · Examen 3', style={'color': ICE, 'fontSize': 11, 'letterSpacing': 1, 'opacity': 0.7, 'padding': '4px 14px 2px'}),
+        html.Div('840-860 MHz', style={'color': '#ffffff', 'fontSize': 16, 'fontWeight': 700, 'padding': '0 14px 16px'}),
+        html.Div(items, style={'padding': '0 8px'}),
+    ], style={'background': NAVY, 'width': 200, 'minHeight': '100vh', 'padding': '18px 0', 'boxSizing': 'border-box'})
+
+def kpi(valor, etiqueta, color=NAVY):
+    return html.Div([
+        html.Div(valor, style={'fontSize': 26, 'fontWeight': 700, 'color': color}),
+        html.Div(etiqueta, style={'fontSize': 12, 'color': MUTED, 'marginTop': 2}),
+    ], style={**PANEL, 'flex': 1, 'textAlign': 'center'})
+
+def imagen_card(nombre_archivo, titulo):
+    src = img64(nombre_archivo)
+    if not src:
+        return html.Div([html.Div(titulo, style={'fontWeight': 600, 'marginBottom': 6}),
+                          html.Div('Figura no disponible (corre 02_indicadores_informe.py).', style={'fontSize': 12, 'color': MUTED})], style=PANEL)
+    return html.Div([html.Div(titulo, style={'fontWeight': 600, 'marginBottom': 8}),
+                      html.Img(src=src, style={'width': '100%', 'borderRadius': 4})], style=PANEL)
+
+# ── Vista: Inicio ──────────────────────────────────────────────────────────
+def vista_inicio():
+    ant = CAL.get('correccion_antena', {})
+    return html.Div([
+        html.H2('Ocupacion del espectro 840-860 MHz - occidente de Medellin', style={'margin': '0 0 4px', 'fontSize': 22, 'color': NAVY}),
+        html.Div(f"{len(IND)} mediciones - canal mas contaminado: {FQ['canal_mas_contaminado']} - frecuencia mas critica: {FQ['f_max_MHz']:.3f} MHz",
+                 style={'fontSize': 13, 'color': MUTED, 'marginBottom': 16}),
+        html.Div([
+            kpi(len(IND), 'mediciones validas'),
+            kpi(f"{CAL['gps_valido_pct']:.1f}%", 'GPS valido'),
+            kpi(f"{ant.get('media_dB', 0):.2f} dB", 'correccion de antena (media)', color=TEAL),
+            kpi(FQ['canal_mas_contaminado'], 'canal mas contaminado', color='#c5221f'),
+        ], style={'display': 'flex', 'gap': 12, 'marginBottom': 16}),
+        html.Div(style=PANEL, children=[
+            html.Div('Dictamen por canal', style={'fontWeight': 600, 'marginBottom': 8}),
+            *panel_indicadores(),
+        ]),
+        html.Div('Usa el menu de la izquierda para ver el mapa interactivo, el analisis espectral, la calidad de datos y las fuentes estimadas.',
+                 style={'fontSize': 12, 'color': MUTED, 'marginTop': 14}),
+    ])
+
+# ── Vista: Mapa ─────────────────────────────────────────────────────────────
+def vista_mapa():
+    return html.Div(style={'display': 'grid', 'gridTemplateColumns': '230px 1fr 290px', 'gap': 12, 'alignItems': 'start'}, children=[
         html.Div(style=PANEL, children=[
             html.Div('Capa', style={'fontWeight': 600, 'marginBottom': 6}),
             dcc.RadioItems(id='capa', value='canal_C', options=[{'label': v[0], 'value': k} for k, v in CAPAS.items()], labelStyle={'display': 'block', 'margin': '5px 0', 'fontSize': 13}),
@@ -111,11 +180,82 @@ app.layout = html.Div(style={'fontFamily': 'system-ui, -apple-system, Segoe UI, 
             html.Div('Superponer', style={'fontWeight': 600, 'marginBottom': 6}),
             dcc.Checklist(id='overlays', value=['ruta', 'fuentes'], labelStyle={'display': 'block', 'margin': '5px 0', 'fontSize': 13},
                           options=[{'label': 'Ruta', 'value': 'ruta'}, {'label': 'Puntos de medicion', 'value': 'puntos'}, {'label': 'Fuentes estimadas (bonificacion)', 'value': 'fuentes'}]),
-            html.Div('Los mapas de calor son interpolaciones IDW a <= 400 m de la ruta.', style={'fontSize': 11, 'color': '#5c6b78', 'marginTop': 10})]),
+            html.Div('Los mapas de calor son interpolaciones IDW a <= 400 m de la ruta.', style={'fontSize': 11, 'color': MUTED, 'marginTop': 10})]),
         html.Div(style=PANEL, children=[dcc.Graph(id='mapa', style={'height': 640}, config={'scrollZoom': True})]),
         html.Div(style=PANEL, children=panel_indicadores()),
-    ]),
+    ])
+
+# ── Vista: Espectro ──────────────────────────────────────────────────────────
+def vista_espectro():
+    return html.Div([
+        html.Div(f"Frecuencia mas critica de toda la banda: {FQ['f_max_MHz']:.3f} MHz.", style={'fontSize': 13, 'color': MUTED, 'marginBottom': 12}),
+        html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': 12}, children=[
+            imagen_card('cascada.png', 'Cascada temporal del espectro'),
+            imagen_card('frecuencias.png', 'Potencia media por frecuencia'),
+        ]),
+    ])
+
+# ── Vista: Calidad ───────────────────────────────────────────────────────────
+def vista_calidad():
+    ant = CAL.get('correccion_antena', {})
+    filas = [html.Tr([html.Th(t) for t in ['Verificacion', 'Casos', 'Detalle']])] + [
+        html.Tr([html.Td(c['verificacion']), html.Td(c['casos']), html.Td(c.get('detalle', ''))]) for c in CAL['checks']]
+    return html.Div([
+        html.Div([
+            kpi(f"{CAL['completitud_pct']:.0f}%", 'completitud de espectros'),
+            kpi(f"{CAL['gps_valido_pct']:.1f}%", 'GPS valido'),
+            kpi(f"{ant.get('min_dB', 0):.2f}-{ant.get('max_dB', 0):.2f} dB", 'correccion antena (rango)', color=TEAL),
+            kpi(CAL.get('valores_modificados_piso', 0), 'bins normalizados por piso de ruido'),
+        ], style={'display': 'flex', 'gap': 12, 'marginBottom': 12}),
+        html.Div(style={**PANEL, 'marginBottom': 12}, children=[
+            html.Div('Correccion por desajuste de antena (barrido S11)', style={'fontWeight': 600, 'marginBottom': 6}),
+            html.Div(f"Archivo: {ant.get('archivo', '-')} - perdida de {ant.get('min_dB', 0):.2f} a {ant.get('max_dB', 0):.2f} dB segun la frecuencia "
+                     f"(media {ant.get('media_dB', 0):.2f} dB). Se aplico a todo el espectro antes del filtro de Hampel y la normalizacion del piso de ruido.",
+                     style={'fontSize': 13, 'color': TEXT}),
+        ]),
+        html.Div(style={**PANEL, 'marginBottom': 12}, children=[
+            html.Div('Verificaciones de calidad de datos', style={'fontWeight': 600, 'marginBottom': 8}),
+            html.Table(filas, style={'width': '100%', 'fontSize': 12, 'borderCollapse': 'collapse'}),
+        ]),
+        html.Div(style={'display': 'grid', 'gridTemplateColumns': '1fr 1fr', 'gap': 12}, children=[
+            imagen_card('ruta.png', 'Ruta de medicion'),
+            imagen_card('temperatura.png', 'Temperatura del sensor'),
+        ]),
+    ])
+
+# ── Vista: Fuentes ───────────────────────────────────────────────────────────
+def vista_fuentes():
+    filas = [html.Tr([html.Th(t) for t in ['Canal', 'Metodo', 'Lat', 'Lon', 'Incertidumbre (m)']])] + [
+        html.Tr([html.Td(c), html.Td(r.metodo), html.Td(f'{r.lat:.5f}'), html.Td(f'{r.lon:.5f}'), html.Td(f'{r.radio95_m:.0f}')])
+        for c, r in FUE.iterrows()]
+    return html.Div([
+        html.Div('Fuente estimada de contaminacion por canal (bonificacion) - modelo de propagacion log-distancia, con respaldo de centroide ponderado cuando el ajuste es debil.',
+                 style={'fontSize': 13, 'color': MUTED, 'marginBottom': 12}),
+        html.Div(style={**PANEL, 'marginBottom': 12}, children=[html.Table(filas, style={'width': '100%', 'fontSize': 13, 'borderCollapse': 'collapse'})]),
+        imagen_card('fuentes.png', 'Fuentes estimadas sobre el mapa'),
+    ])
+
+RENDER_VISTA = {'inicio': vista_inicio, 'mapa': vista_mapa, 'espectro': vista_espectro, 'calidad': vista_calidad, 'fuentes': vista_fuentes}
+
+app = Dash(__name__, title='Ocupacion 840-860 MHz - Medellin')
+app.config.suppress_callback_exceptions = True
+app.layout = html.Div(style={'fontFamily': 'system-ui, -apple-system, Segoe UI, sans-serif', 'display': 'flex', 'minHeight': '100vh', 'background': BG, 'color': TEXT}, children=[
+    html.Div(id='sidebar', children=sidebar('inicio')),
+    dcc.Store(id='vista', data='inicio'),
+    html.Div(id='contenido', style={'flex': 1, 'padding': 16}, children=vista_inicio()),
 ])
+
+@app.callback(Output('vista', 'data'), Input({'type': 'nav', 'index': dash.ALL}, 'n_clicks'), prevent_initial_call=True)
+def cambiar_vista(_clicks):
+    trig = dash.ctx.triggered_id
+    if trig and isinstance(trig, dict):
+        return trig['index']
+    return dash.no_update
+
+@app.callback(Output('contenido', 'children'), Output('sidebar', 'children'), Input('vista', 'data'))
+def render_vista(vista):
+    vista = vista or 'inicio'
+    return RENDER_VISTA.get(vista, vista_inicio)(), sidebar(vista)
 
 @app.callback(Output('mapa', 'figure'), Input('capa', 'value'), Input('overlays', 'value'))
 def actualizar(capa, overlays):

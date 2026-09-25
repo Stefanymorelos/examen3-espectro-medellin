@@ -1,5 +1,5 @@
 Canal,Banda (MHz),Ocupacion (% de mediciones > umbral),Potencia media (dBm),Mediana (dBm),P90 (dBm),Max (dBm),% bins > umbral,Ranking (1 = mas contaminado),IC95 ocupacion (%),Dictamen
-A,840-845,24.6,-46.4,-73.0,-54.6,-28.8,21.4,4,16-37,Recomendado
-B,845-850,32.8,-37.0,-65.1,-29.2,-26.7,28.5,2,22-45,Condicionado
-C,850-855,83.6,-28.2,-46.3,-33.7,-11.3,59.0,1,72-91,No recomendado
-D,855-860,29.5,-44.5,-70.1,-42.6,-28.5,25.4,3,20-42,Condicionado
+A,840-845,27.9,-45.2,-69.8,-53.3,-27.6,24.6,4,18-40,Condicionado
+B,845-850,32.8,-36.0,-63.9,-28.1,-25.6,30.8,2,22-45,Condicionado
+C,850-855,85.2,-27.2,-45.3,-32.8,-10.4,61.1,1,74-92,No recomendado
+D,855-860,32.8,-43.7,-68.5,-41.9,-27.8,27.3,3,22-45,Condicionado

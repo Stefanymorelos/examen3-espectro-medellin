@@ -198,6 +198,7 @@ q, T = calidad, calidad['temperatura']
 chk = pd.DataFrame(q['checks']).rename(columns={'verificacion': 'Verificacion', 'casos': 'Casos', 'detalle': 'Detalle'})
 imp = pd.DataFrame(q['imputaciones'])
 imp.columns = ['Problema', 'Tecnica', 'Valores modificados', 'Motivo', '% del total']
+ant = q['correccion_antena']
 ruta = q['ruta']
 tr = pd.DataFrame(T['tabla'])[['indicador', 'Pearson r', 'p', 'r parcial (ctrl. tiempo)', 'p (parcial)']]
 concl_temp = ('**No se encuentra una incidencia significativa** de la temperatura sobre la calidad de las medidas: las correlaciones brutas son debiles y '
@@ -232,6 +233,8 @@ Sin contar la regla de piso que pide el enunciado, modifique **{q['valores_modif
 
 {tabla_md(imp, 3)}
 Por que hice cada correccion: cuando el GPS no tiene fix (lat = lon = 0) o el HDOP es mayor a 5, la posicion no es confiable, asi que la reconstruyo interpolando entre las mediciones vecinas en el tiempo. La espiga que aparece siempre en 850.000 MHz no es una senal real, es un artefacto conocido de los receptores de conversion directa (fuga del oscilador local), por eso la reemplazo con el promedio de sus vecinos. Las espigas angostas (1-2 bins) tampoco pueden ser senales celulares reales -esas ocupan decenas de bins-, asi que las trato como ruido puntual y las corrijo con la mediana local. Las mediciones con posible saturacion ({', '.join(q['saturadas']) or 'ninguna'}) las dejo en el dataset pero marcadas, para no perder informacion.
+
+Ademas de esas correcciones, el dataset trae `{ant['archivo']}`: un barrido S11 de la antena tomado con un analizador de redes. Ese archivo no es una medicion (mi filtro por regex lo descarta correctamente de la lista de mediciones), pero si es un dato de calibracion real del receptor, asi que lo uso para corregir la perdida de senal por desajuste de impedancia de la antena en la banda: interpolo el S11 a mis 1024 bins y le sumo a cada uno la perdida de desajuste correspondiente (perdida = -10*log10(1 - |Gamma|^2), con |Gamma|^2 = 10^(S11_dB/10)). En 840-860 MHz esa perdida va de {ant['min_dB']:.2f} a {ant['max_dB']:.2f} dB (media {ant['media_dB']:.2f} dB) -no es enorme, pero si suficiente para mover el dictamen de algunos canales que estaban cerca del umbral (ver seccion 2.2).
 
 ### 1.3 Ruta de la estacion movil
 La ruta arranca en ({ruta['inicio'][0]:.5f}, {ruta['inicio'][1]:.5f}) y termina en ({ruta['fin'][0]:.5f}, {ruta['fin'][1]:.5f}): {ruta['longitud_km']:.1f} km recorridos en {ruta['duracion_min']:.0f} min

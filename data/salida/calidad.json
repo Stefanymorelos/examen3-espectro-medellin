@@ -78,18 +78,24 @@
     {
       "problema": "Piso de ruido (<-65.0 -> -95.0 dB)",
       "tecnica": "Sustitucion (regla del enunciado)",
-      "valores modificados": 33759,
+      "valores modificados": 32096,
       "motivo": "Normaliza el piso de ruido",
-      "% del total": 53.888
+      "% del total": 51.233
     }
   ],
   "valores_modificados_sin_piso": 136,
-  "valores_modificados_piso": 33759,
+  "valores_modificados_piso": 32096,
   "valores_totales_espectro": 62464,
   "aplicar_piso": true,
   "saturadas": [
     "016.txt"
   ],
+  "correccion_antena": {
+    "archivo": "ANTENNA1.csv",
+    "min_dB": 0.638770578714468,
+    "max_dB": 1.3290591874090314,
+    "media_dB": 0.9983372787259556
+  },
   "ruta": {
     "inicio": [
       6.24325666667,
@@ -123,12 +129,12 @@
     "tabla": [
       {
         "indicador": "piso_ruido_dB",
-        "Pearson r": 0.211,
-        "p": 0.103,
+        "Pearson r": 0.21,
+        "p": 0.104,
         "Spearman rho": 0.168,
-        "p (S)": 0.195,
-        "r parcial (ctrl. tiempo)": 0.096,
-        "p (parcial)": 0.46
+        "p (S)": 0.197,
+        "r parcial (ctrl. tiempo)": 0.097,
+        "p (parcial)": 0.456
       },
       {
         "indicador": "potencia_media_dB",
@@ -136,17 +142,17 @@
         "p": 0.053,
         "Spearman rho": 0.13,
         "p (S)": 0.317,
-        "r parcial (ctrl. tiempo)": 0.151,
-        "p (parcial)": 0.244
+        "r parcial (ctrl. tiempo)": 0.152,
+        "p (parcial)": 0.242
       },
       {
         "indicador": "desv_espectro_dB",
-        "Pearson r": 0.283,
-        "p": 0.027,
-        "Spearman rho": 0.281,
-        "p (S)": 0.028,
-        "r parcial (ctrl. tiempo)": 0.153,
-        "p (parcial)": 0.238
+        "Pearson r": 0.282,
+        "p": 0.028,
+        "Spearman rho": 0.271,
+        "p (S)": 0.035,
+        "r parcial (ctrl. tiempo)": 0.155,
+        "p (parcial)": 0.233
       }
     ],
     "incidencia_significativa": false
