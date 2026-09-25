@@ -1,0 +1,154 @@
+{
+  "mediciones_validas": 61,
+  "pruebas_descartadas": 2,
+  "rechazados_estructura": 0,
+  "completitud_pct": 100.0,
+  "gps_valido_pct": 96.72131147540983,
+  "checks": [
+    {
+      "verificacion": "Archivos con estructura valida (1024 + 5 columnas)",
+      "casos": 63,
+      "detalle": "0 rechazados"
+    },
+    {
+      "verificacion": "Valores NaN / infinitos en espectros",
+      "casos": 0,
+      "detalle": ""
+    },
+    {
+      "verificacion": "Espectros fuera de rango fisico (>0 dB o <-120 dB)",
+      "casos": 0,
+      "detalle": ""
+    },
+    {
+      "verificacion": "GPS sin fijar (lat=lon=0, alt=0)",
+      "casos": 1,
+      "detalle": "008.txt"
+    },
+    {
+      "verificacion": "GPS con HDOP > 5.0",
+      "casos": 1,
+      "detalle": "017.txt (HDOP 17.3)"
+    },
+    {
+      "verificacion": "Temperatura fuera de rango operativo",
+      "casos": 0,
+      "detalle": ""
+    },
+    {
+      "verificacion": "Espectros con posible saturacion (pico > -5 dB)",
+      "casos": 1,
+      "detalle": "016.txt"
+    },
+    {
+      "verificacion": "Archivos de prueba descartados",
+      "casos": 2,
+      "detalle": "medidaprueba.txt, medidapureba2.txt"
+    }
+  ],
+  "imputaciones": [
+    {
+      "problema": "GPS sin fijar (lat, lon, alt)",
+      "tecnica": "Interpolacion lineal entre vecinos",
+      "valores modificados": 3,
+      "motivo": "Sin fix: coordenadas = 0",
+      "% del total": 0.005
+    },
+    {
+      "problema": "GPS con HDOP > 5.0 (lat, lon, alt)",
+      "tecnica": "Interpolacion lineal entre vecinos",
+      "valores modificados": 3,
+      "motivo": "Precision horizontal no confiable",
+      "% del total": 0.005
+    },
+    {
+      "problema": "Espiga DC (bin 850.000 MHz)",
+      "tecnica": "Promedio de bins vecinos",
+      "valores modificados": 61,
+      "motivo": "Artefacto de conversion directa",
+      "% del total": 0.097
+    },
+    {
+      "problema": "Espigas aisladas <=2 bins",
+      "tecnica": "Mediana local (11 bins)",
+      "valores modificados": 69,
+      "motivo": "Ruido/interferencia espuria",
+      "% del total": 0.11
+    },
+    {
+      "problema": "Piso de ruido (<-65.0 -> -95.0 dB)",
+      "tecnica": "Sustitucion (regla del enunciado)",
+      "valores modificados": 33759,
+      "motivo": "Normaliza el piso de ruido",
+      "% del total": 53.888
+    }
+  ],
+  "valores_modificados_sin_piso": 136,
+  "valores_modificados_piso": 33759,
+  "valores_totales_espectro": 62464,
+  "aplicar_piso": true,
+  "saturadas": [
+    "016.txt"
+  ],
+  "ruta": {
+    "inicio": [
+      6.24325666667,
+      -75.58667
+    ],
+    "fin": [
+      6.24042333333,
+      -75.5908283333
+    ],
+    "longitud_km": 26.223161853429836,
+    "cierre_m": 557.2530695837345,
+    "duracion_min": 103.73333333333333,
+    "vel_media_kmh": 15.167638604168928,
+    "hora_inicio": "2019-11-07 09:11:00",
+    "hora_fin": "2019-11-07 10:54:44",
+    "alt_min": 1499.0,
+    "alt_max": 1589.6,
+    "bbox": [
+      6.158005,
+      -75.609505,
+      6.24325666667,
+      -75.56914
+    ]
+  },
+  "temperatura": {
+    "rango": [
+      42.807022,
+      50.409355
+    ],
+    "r_tiempo": 0.8587972199124235,
+    "tabla": [
+      {
+        "indicador": "piso_ruido_dB",
+        "Pearson r": 0.211,
+        "p": 0.103,
+        "Spearman rho": 0.168,
+        "p (S)": 0.195,
+        "r parcial (ctrl. tiempo)": 0.096,
+        "p (parcial)": 0.46
+      },
+      {
+        "indicador": "potencia_media_dB",
+        "Pearson r": 0.249,
+        "p": 0.053,
+        "Spearman rho": 0.13,
+        "p (S)": 0.317,
+        "r parcial (ctrl. tiempo)": 0.151,
+        "p (parcial)": 0.244
+      },
+      {
+        "indicador": "desv_espectro_dB",
+        "Pearson r": 0.283,
+        "p": 0.027,
+        "Spearman rho": 0.281,
+        "p (S)": 0.028,
+        "r parcial (ctrl. tiempo)": 0.153,
+        "p (parcial)": 0.238
+      }
+    ],
+    "incidencia_significativa": false
+  }
+}
